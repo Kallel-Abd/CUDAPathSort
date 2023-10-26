@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdbool.h> 
 
 // Fonction pour comparer deux entiers (utilisée par qsort)
 int compare(const void *a, const void *b) {
@@ -26,6 +27,19 @@ int* generateSortedRandomArray(int n) {
     return arr;
 }
 
+
+
+
+bool isSorted(int arr[], int n) {
+    for (int i = 1; i < n; i++) {
+        if (arr[i-1] > arr[i]) {
+            return false; // Si un élément précédent est supérieur à un élément suivant, le tableau n'est pas trié
+        }
+    }
+    return true; // Si nous avons parcouru tout le tableau sans trouver d'éléments non triés
+}
+
+
 int main() {
     srand(time(0));  // Initialiser le générateur de nombres aléatoires
 
@@ -37,7 +51,13 @@ int main() {
         printf("%d ", arr[i]);
     }
     printf("\n");
-
+   
+   if (isSorted(arr,n)){
+    printf("It is sorted\n");
+   }
+   else{
+    printf("is not sorted\n");
+   }
     // Libérer la mémoire allouée pour le tableau
     free(arr);
 
