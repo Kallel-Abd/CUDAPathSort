@@ -48,6 +48,15 @@ bool isSorted(int arr[], int n) {
     return true; // Si nous avons parcouru tout le tableau sans trouver d'éléments non triés
 }
 
+//affiche les 10 premier élément d'un tableau d'entiers
+void head(int* a){
+    printf("tab=[%d",a[0]);
+    for (int i=1; i<10;i++){
+        printf(",%d",a[i]);
+    }
+    printf("]\n");
+}
+
 
 // Has to be defined in the compilation in order to get the correct value 
 // of the macros __FILE__ and __LINE__
@@ -101,7 +110,8 @@ int main(){
     testCUDA(cudaEventCreate(&start));
     testCUDA(cudaEventCreate(&stop));
 
-    sizeA = sizeB = 120;
+    sizeA = 120000;
+    sizeB = 130000;
     int sizeM = sizeA + sizeB;
 
     // Initialisez le générateur de nombres aléatoires
@@ -117,9 +127,11 @@ int main(){
     }
     if (isSorted(a,sizeA)){
         printf("A is sorted of size = %d\n",sizeA);
+        head(a);
     }
     if (isSorted(b,sizeB)){
         printf("B is sorted of size = %d\n",sizeB);
+        head(b);
     }
 
 	testCUDA(cudaMalloc(&aGPU,sizeA*sizeof(int)));
@@ -136,6 +148,7 @@ int main(){
     testCUDA(cudaMemcpy(m, mGPU, sizeM*sizeof(int),	cudaMemcpyDeviceToHost));
     if (isSorted(m,sizeM)){
         printf("M is sorted\n");
+        head(m);
     }
 	
 	testCUDA(cudaEventRecord(stop,0));
