@@ -49,9 +49,9 @@ bool isSorted(int arr[], int n) {
 }
 
 //affiche les 10 premier élément d'un tableau d'entiers
-void head(int* a){
+void head(int* a, int size){
     printf("tab=[%d",a[0]);
-    for (int i=1; i<10;i++){
+    for (int i=1; i<size;i++){
         printf(",%d",a[i]);
     }
     printf("]\n");
@@ -110,8 +110,8 @@ int main(){
     testCUDA(cudaEventCreate(&start));
     testCUDA(cudaEventCreate(&stop));
 
-    sizeA = 120000;
-    sizeB = 130000;
+    sizeA = 520;
+    sizeB = 500;
     int sizeM = sizeA + sizeB;
 
     // Initialisez le générateur de nombres aléatoires
@@ -127,11 +127,11 @@ int main(){
     }
     if (isSorted(a,sizeA)){
         printf("A is sorted of size = %d\n",sizeA);
-        head(a);
+        head(a,10);
     }
     if (isSorted(b,sizeB)){
         printf("B is sorted of size = %d\n",sizeB);
-        head(b);
+        head(b,10);
     }
 
 	testCUDA(cudaMalloc(&aGPU,sizeA*sizeof(int)));
@@ -148,7 +148,7 @@ int main(){
     testCUDA(cudaMemcpy(m, mGPU, sizeM*sizeof(int),	cudaMemcpyDeviceToHost));
     if (isSorted(m,sizeM)){
         printf("M is sorted\n");
-        head(m);
+        head(m,20);
     }
 	
 	testCUDA(cudaEventRecord(stop,0));
