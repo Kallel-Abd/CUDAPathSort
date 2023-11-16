@@ -95,18 +95,26 @@ __global__ void mergeSmall_k(int* A ,int sizeA, int* B,int sizeB, int* M){
 }
 
 int main(){
-    int *a, *b, *m,*aGPU,*bGPU,*mGPU,sizeA,sizeB;
-	float TimeVar;
-	cudaEvent_t start, stop;
-	testCUDA(cudaEventCreate(&start));
-	testCUDA(cudaEventCreate(&stop));
+    int *a, *b, *m, *aGPU, *bGPU, *mGPU, sizeA, sizeB;
+    float TimeVar;
+    cudaEvent_t start, stop;
+    testCUDA(cudaEventCreate(&start));
+    testCUDA(cudaEventCreate(&stop));
 
-    sizeA= sizeB = 120;
-    int sizeM=sizeA + sizeB;
+    sizeA = sizeB = 120;
+    int sizeM = sizeA + sizeB;
+
+    // Initialisez le générateur de nombres aléatoires
+    srand(time(NULL));
 
     printf("Generating A and B :\n");
-	a = generateSortedRandomArray(sizeA);
-	b = generateSortedRandomArray(sizeB);
+    a = generateSortedRandomArray(sizeA);
+    b = generateSortedRandomArray(sizeB);
+    m = (int*)malloc(sizeM * sizeof(int)); // Allocation de mémoire pour m
+    if (!m) {
+        printf("Erreur d'allocation de mémoire pour m.\n");
+        exit(1);
+    }
     if (isSorted(a,sizeA)){
         printf("A is sorted of size = %d\n",sizeA);
     }
@@ -139,10 +147,10 @@ int main(){
 	testCUDA(cudaFree(bGPU));
 	testCUDA(cudaFree(mGPU));
 	free(a);	
-	free(b);	
-	free(m);
+    free(b);	
+    free(m); // Libération de la mémoire pour m
 
-    printf("Processing time when using malloc: %f s\n", 0.001f*TimeVar);
+    printf("Processing time when using malloc: %f s\n", 0.001f * TimeVar);
     
     return 0;
 }
