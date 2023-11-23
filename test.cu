@@ -1,0 +1,176 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <assert.h>
+
+//Compile
+//nvcc paraSort.cu -o DQ
+
+
+// Function that catches the error 
+void testCUDA(cudaError_t error, const char *file, int line)  {
+	if (error != cudaSuccess) {
+	   printf("There is an error in file %s at line %d\n", file, line);
+       exit(EXIT_FAILURE);
+	} 
+}
+
+// Fonction pour comparer deux entiers (utilisée par qsort)
+int compare(const void *a, const void *b) {
+    return (*(int*)a - *(int*)b);
+}
+
+// Fonction pour générer et retourner un tableau de n valeurs aléatoires triées
+int* generateSortedRandomArray(int n) {
+    int *arr = (int*)malloc(n * sizeof(int));
+    if (!arr) {
+        printf("Erreur d'allocation de mémoire.\n");
+        exit(1);
+    }
+
+    // Remplir le tableau avec des valeurs aléatoires
+    for (int i = 0; i < n; i++) {
+        arr[i] = rand() % (n*10);  // Génère des nombres entre 0 et 999
+    }
+
+    // Trier le tableau
+    qsort(arr, n, sizeof(int), compare);
+
+    return arr;
+}
+
+bool isSorted(int arr[], int n) {
+    for (int i = 1; i < n; i++) {
+        if (arr[i-1] > arr[i]) {
+            return false; // Si un élément précédent est supérieur à un élément suivant, le tableau n'est pas trié
+        }
+    }
+    return true; // Si nous avons parcouru tout le tableau sans trouver d'éléments non triés
+}
+
+//affiche les 10 premier élément d'un tableau d'entiers
+void head(int* a, int size){
+    printf("tab=[%d",a[0]);
+    for (int i=1; i<size;i++){
+        printf(",%d",a[i]);
+    }
+    printf("]\n");
+}
+
+
+// Has to be defined in the compilation in order to get the correct value 
+// of the macros __FILE__ and __LINE__
+#define testCUDA(error) (testCUDA(error, __FILE__ , __LINE__))
+
+__global__ void mergeLarge_k(int* A, int sizeA, int* B, int sizeB, int* M) {
+    int globalThreadId = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Vérifier si le thread actuel est dans les limites des tableaux A et B
+    if (globalThreadId >= sizeA + sizeB) return;
+
+    int i, j, Kx, Ky, Px, Py;
+
+    if (globalThreadId > sizeA) {
+        Kx = globalThreadId - sizeA;
+        Ky = sizeA;
+        Px = sizeA;
+        Py = globalThreadId - sizeA;
+    } else {
+        Kx = 0;
+        Ky = globalThreadId;
+        Px = globalThreadId;
+        Py = 0;
+    }
+
+    while (true) {
+        int offset = abs(Ky - Py) / 2;
+        int Qx = Kx + offset;
+        int Qy = Ky - offset;
+
+        // Calculer la position pour la fusion dans le tableau M
+        if (Qy >= 0 && Qx <= sizeB && (Qy == sizeA || Qx == 0 || A[Qy] > B[Qx - 1])) {
+            if (Qx == sizeB || Qy == 0 || A[Qy - 1] <= B[Qx]) {
+                if (Qy < sizeA && (Qx == sizeB || A[Qy] <= B[Qx])) {
+                    M[globalThreadId] = A[Qy]; // Fusionner A dans M
+                } else {
+                    M[globalThreadId] = B[Qx]; // Fusionner B dans M
+                }
+                break;
+            } else {
+                Kx = Qx + 1;
+                Ky = Qy - 1;
+            }
+        } else {
+            Px = Qx - 1;
+            Py = Qy + 1;
+        }
+    }
+}
+
+
+int main(){
+    int *a, *b, *m, *aGPU, *bGPU, *mGPU, sizeA, sizeB;
+    float TimeVar;
+    cudaEvent_t start, stop;
+    testCUDA(cudaEventCreate(&start));
+    testCUDA(cudaEventCreate(&stop));
+
+    sizeA = 520;
+    sizeB = 600;
+    int sizeM = sizeA + sizeB;
+
+    // Initialisez le générateur de nombres aléatoires
+    srand(time(NULL));
+
+    printf("Generating A and B :\n");
+    a = generateSortedRandomArray(sizeA);
+    b = generateSortedRandomArray(sizeB);
+    m = (int*)malloc(sizeM * sizeof(int)); // Allocation de mémoire pour m
+    if (!m) {
+        printf("Erreur d'allocation de mémoire pour m.\n");
+        exit(1);
+    }
+    if (isSorted(a,sizeA)){
+        printf("A is sorted of size = %d\n",sizeA);
+        head(a,10);
+    }
+    if (isSorted(b,sizeB)){
+        printf("B is sorted of size = %d\n",sizeB);
+        head(b,10);
+    }
+
+	testCUDA(cudaMalloc(&aGPU,sizeA*sizeof(int)));
+	testCUDA(cudaMalloc(&bGPU,sizeB*sizeof(int)));
+	testCUDA(cudaMalloc(&mGPU,sizeM*sizeof(int)));
+
+	testCUDA(cudaEventRecord(start,0));
+
+    testCUDA(cudaMemcpy(aGPU, a, sizeA*sizeof(int),	cudaMemcpyHostToDevice)); 
+    testCUDA(cudaMemcpy(bGPU, b, sizeB*sizeof(int),	cudaMemcpyHostToDevice));
+    printf("Sorting A and B to M ...\n"); 
+    int threadsPerBlock = 1024; // ou une autre valeur adaptée
+    int numBlocks = (sizeM + threadsPerBlock - 1) / threadsPerBlock;
+    mergeLarge_k<<<numBlocks, threadsPerBlock>>>(aGPU, sizeA, bGPU, sizeB, mGPU);
+
+    testCUDA(cudaMemcpy(m, mGPU, sizeM*sizeof(int),	cudaMemcpyDeviceToHost));
+    if (isSorted(m,sizeM)){
+        printf("M is sorted\n");
+        head(m,20);
+    }
+	
+	testCUDA(cudaEventRecord(stop,0));
+	testCUDA(cudaEventSynchronize(stop));
+	testCUDA(cudaEventElapsedTime(&TimeVar, start, stop));
+	testCUDA(cudaEventDestroy(start));
+	testCUDA(cudaEventDestroy(stop));
+	testCUDA(cudaFree(aGPU));
+	testCUDA(cudaFree(bGPU));
+	testCUDA(cudaFree(mGPU));
+	free(a);	
+    free(b);	
+    free(m); // Libération de la mémoire pour m
+
+    printf("Processing time when using malloc: %f s\n", 0.001f * TimeVar);
+    
+    return 0;
+}
